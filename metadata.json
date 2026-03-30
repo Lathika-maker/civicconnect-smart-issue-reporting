@@ -1,0 +1,5 @@
+{
+  "name": "CivicConnect",
+  "description": "Smart Civic Issue Reporting System for citizens to report and track civic complaints.",
+  "requestFramePermissions": ["geolocation", "camera", "microphone"]
+}
