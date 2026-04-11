@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Search, Phone, CheckCircle2, Clock, AlertCircle, 
-  MapPin, Calendar, User, ArrowRight, Loader2, Image as ImageIcon
+  MapPin, Calendar, User, ArrowRight, Loader2, Image as ImageIcon,
+  ShieldCheck, ThumbsUp, Mic, Play, Volume2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Complaint, ComplaintStatus } from '../types';
@@ -9,6 +10,9 @@ import { cn } from '../lib/utils';
 
 interface TrackComplaintProps {
   complaints: Complaint[];
+  initialId?: string | null;
+  onClearId?: () => void;
+  onConfirm?: (id: string) => void;
 }
 
 const STATUS_STEPS: ComplaintStatus[] = [
@@ -19,12 +23,30 @@ const STATUS_STEPS: ComplaintStatus[] = [
   'Resolved'
 ];
 
-export default function TrackComplaintPage({ complaints }: TrackComplaintProps) {
-  const [searchId, setSearchId] = useState('');
+export default function TrackComplaintPage({ complaints, initialId, onClearId, onConfirm }: TrackComplaintProps) {
+  const [searchId, setSearchId] = useState(initialId || '');
   const [searchPhone, setSearchPhone] = useState('');
   const [foundComplaint, setFoundComplaint] = useState<Complaint | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Use the latest data from complaints array to ensure reactivity
+  const currentComplaint = foundComplaint ? complaints.find(c => c.id === foundComplaint.id) || foundComplaint : null;
+
+  React.useEffect(() => {
+    if (initialId) {
+      setSearchId(initialId);
+      // Trigger search automatically if ID is provided
+      setIsSearching(true);
+      setTimeout(() => {
+        const result = complaints.find(c => c.id.toLowerCase() === initialId.toLowerCase());
+        setFoundComplaint(result || null);
+        setIsSearching(false);
+        setHasSearched(true);
+        if (onClearId) onClearId();
+      }, 800);
+    }
+  }, [initialId, complaints, onClearId]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,20 +117,37 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
           >
-            {foundComplaint ? (
+            {currentComplaint ? (
               <div className="space-y-8">
                 {/* Status Timeline */}
                 <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
                   <div className="flex items-center justify-between mb-12">
-                    <div>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Complaint ID</p>
-                      <h3 className="text-2xl font-bold text-slate-900">{foundComplaint.id}</h3>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Complaint ID</p>
+                        {currentComplaint.isCommunityVerified && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                            <ShieldCheck className="w-3 h-3" />
+                            Community Verified
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-2xl font-bold text-slate-900">{currentComplaint.id}</h3>
                     </div>
-                    <div className={cn(
-                      "px-4 py-1.5 rounded-full text-sm font-bold",
-                      foundComplaint.status === 'Resolved' ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
-                    )}>
-                      {foundComplaint.status}
+                    <div className="flex flex-col items-end gap-3">
+                      <div className={cn(
+                        "px-4 py-1.5 rounded-full text-sm font-bold",
+                        currentComplaint.status === 'Resolved' ? "bg-green-100 text-green-600" : "bg-blue-100 text-blue-600"
+                      )}>
+                        {currentComplaint.status}
+                      </div>
+                      <button 
+                        onClick={() => onConfirm?.(currentComplaint.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 rounded-xl text-xs font-bold transition-all"
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        Confirm Issue ({currentComplaint.confirmations || 0})
+                      </button>
                     </div>
                   </div>
 
@@ -118,13 +157,13 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                     {/* Progress Bar Active */}
                     <div 
                       className="absolute top-5 left-0 h-1 bg-blue-600 rounded-full transition-all duration-1000"
-                      style={{ width: `${(getStatusIndex(foundComplaint.status) / (STATUS_STEPS.length - 1)) * 100}%` }}
+                      style={{ width: `${(getStatusIndex(currentComplaint.status) / (STATUS_STEPS.length - 1)) * 100}%` }}
                     />
 
                     <div className="relative flex justify-between">
                       {STATUS_STEPS.map((step, i) => {
-                        const isCompleted = i <= getStatusIndex(foundComplaint.status);
-                        const isCurrent = i === getStatusIndex(foundComplaint.status);
+                        const isCompleted = i <= getStatusIndex(currentComplaint.status);
+                        const isCurrent = i === getStatusIndex(currentComplaint.status);
                         
                         return (
                           <div key={step} className="flex flex-col items-center gap-3">
@@ -159,7 +198,7 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-400 uppercase">Category</p>
-                          <p className="font-medium text-slate-900">{foundComplaint.category}</p>
+                          <p className="font-medium text-slate-900">{currentComplaint.category}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-4">
@@ -168,7 +207,7 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-400 uppercase">Location</p>
-                          <p className="font-medium text-slate-900">{foundComplaint.location.address}</p>
+                          <p className="font-medium text-slate-900">{currentComplaint.location.address}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-4">
@@ -177,7 +216,7 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-400 uppercase">Submitted On</p>
-                          <p className="font-medium text-slate-900">{new Date(foundComplaint.createdAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</p>
+                          <p className="font-medium text-slate-900">{new Date(currentComplaint.createdAt).toLocaleDateString('en-US', { dateStyle: 'long' })}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-4">
@@ -186,13 +225,35 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-400 uppercase">Reported By</p>
-                          <p className="font-medium text-slate-900">{foundComplaint.fullName}</p>
+                          <p className="font-medium text-slate-900">{currentComplaint.fullName}</p>
                         </div>
                       </div>
                     </div>
-                    <div className="pt-4 border-t border-slate-50">
-                      <p className="text-xs font-bold text-slate-400 uppercase mb-2">Description</p>
-                      <p className="text-slate-600 text-sm leading-relaxed">{foundComplaint.description}</p>
+                    <div className="pt-4 border-t border-slate-50 space-y-4">
+                      <div>
+                        <p className="text-xs font-bold text-slate-400 uppercase mb-2">Description</p>
+                        <p className="text-slate-600 text-sm leading-relaxed">{currentComplaint.description}</p>
+                      </div>
+                      
+                      {currentComplaint.transcription && (
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Mic className="w-3.5 h-3.5 text-blue-500" />
+                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">AI Voice Transcription</p>
+                          </div>
+                          <p className="text-sm text-slate-600 italic">"{currentComplaint.transcription}"</p>
+                        </div>
+                      )}
+
+                      {currentComplaint.audioUrl && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Voice Dispatch Recording</p>
+                          <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <Volume2 className="w-4 h-4 text-slate-400" />
+                            <audio src={currentComplaint.audioUrl} controls className="h-8 flex-1 opacity-60" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -200,7 +261,7 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                     <h4 className="text-lg font-bold text-slate-900">Evidence & Map</h4>
                     <div className="aspect-video bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden group cursor-pointer relative">
                       <img 
-                        src={`https://picsum.photos/seed/${foundComplaint.id}/600/400`} 
+                        src={`https://picsum.photos/seed/${currentComplaint.id}/600/400`} 
                         alt="Issue evidence"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
@@ -216,7 +277,7 @@ export default function TrackComplaintPage({ complaints }: TrackComplaintProps) 
                         </div>
                         <div>
                           <p className="text-xs font-bold text-blue-600">View on Map</p>
-                          <p className="text-xs text-blue-400">Coordinates: {foundComplaint.location.lat.toFixed(4)}, {foundComplaint.location.lng.toFixed(4)}</p>
+                          <p className="text-xs text-blue-400">Coordinates: {currentComplaint.location.lat.toFixed(4)}, {currentComplaint.location.lng.toFixed(4)}</p>
                         </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-blue-600" />

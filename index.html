@@ -3,7 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>CivicConnect | Smart City Issue Reporting & Community Management</title>
+    <meta name="description" content="CivicConnect is the leading platform for smart city engagement. Report potholes, sanitation issues, and utility failures directly to municipal authorities. Track status in real-time and join your community in building a better city." />
+    <meta name="keywords" content="civic reporting, smart city app, municipal management, report potholes online, community engagement platform, city maintenance tracker, civic connect, urban issue reporting" />
+    <meta name="author" content="CivicConnect Municipal Team" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://civicconnect.app/" />
+    <meta property="og:title" content="CivicConnect | Empowering Citizens, Building Better Cities" />
+    <meta property="og:description" content="Report civic issues, track progress, and collaborate with municipal authorities in real-time. Join the smart city revolution." />
+    <meta property="og:image" content="https://picsum.photos/seed/smartcity/1200/630" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="CivicConnect - Smart Civic Issue Reporting" />
+    <meta property="twitter:description" content="Report and track civic issues in real-time. Help build a better city together." />
+    <meta property="twitter:image" content="https://picsum.photos/seed/civic/1200/630" />
+
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#2563eb" />
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js');
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

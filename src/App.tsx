@@ -8,12 +8,28 @@ import {
   Menu, X, Home as HomeIcon, AlertCircle, Search, Map as MapIcon, 
   Info, LayoutDashboard, HelpCircle, Phone, Globe, User, 
   CheckCircle2, Clock, AlertTriangle, ArrowRight, Bell,
-  Languages, Accessibility, Mic, ThumbsUp, MapPin, Lock, ShieldCheck
+  Languages, Accessibility, Mic, ThumbsUp, MapPin, Lock, ShieldCheck, Newspaper, LogOut, Crown, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { Complaint, IssueCategory, Notification } from './types';
 import { MOCK_COMPLAINTS } from './mockData';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  setDoc, 
+  getDoc,
+  query,
+  orderBy,
+  increment,
+  serverTimestamp,
+  writeBatch
+} from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 // Pages
 import HomePage from './pages/Home';
@@ -25,7 +41,10 @@ import DashboardPage from './pages/Dashboard';
 import AboutPage from './pages/About';
 import ContactPage from './pages/Contact';
 import AuthorityLoginPage from './pages/AuthorityLogin';
+import SuperiorLoginPage from './pages/SuperiorLogin';
 import UserLoginPage from './pages/UserLogin';
+import NewsPage from './pages/News';
+import ProfilePage from './pages/Profile';
 
 import { LanguageProvider, useLanguage } from './LanguageContext';
 import { Language } from './translations';
@@ -40,13 +59,16 @@ export type Page =
   | 'about' 
   | 'contact'
   | 'authority-login'
-  | 'user-login';
+  | 'superior-login'
+  | 'user-login'
+  | 'news'
+  | 'profile';
 
 function AppContent({ 
   currentPage, 
   setCurrentPage, 
-  isMenuOpen, 
-  setIsMenuOpen, 
+  trackId,
+  setTrackId,
   complaints, 
   addComplaint, 
   notifications, 
@@ -56,46 +78,93 @@ function AppContent({
   setIsAuthority,
   isUser,
   setIsUser,
-  updateComplaintStatus
+  updateComplaintStatus,
+  deleteComplaint,
+  confirmComplaint,
+  isSuperior,
+  setIsSuperior
 }: any) {
   const { language, setLanguage, t } = useLanguage();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsAuthority(false);
+      setIsUser(null);
+      setCurrentPage('home');
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
 
   const navLinks = [
     { id: 'home', label: t.nav.home, icon: HomeIcon },
     { id: 'report', label: t.nav.report, icon: AlertCircle },
     { id: 'track', label: t.nav.track, icon: Search },
     { id: 'map', label: t.nav.map, icon: MapIcon },
+    { id: 'news', label: 'Civic News', icon: Newspaper },
     { id: 'how-it-works', label: t.nav.howItWorks, icon: HelpCircle },
     { id: 'dashboard', label: t.nav.dashboard, icon: LayoutDashboard },
     { id: 'about', label: t.nav.about, icon: Info },
     { id: 'contact', label: t.nav.contact, icon: Phone },
-    { id: 'user-login', label: 'User Login', icon: User },
-    { id: 'authority-login', label: 'Authority', icon: ShieldCheck },
+    ...(!isUser && !isAuthority ? [
+      { id: 'user-login', label: 'User Login', icon: User },
+      { id: 'authority-login', label: 'Authority', icon: ShieldCheck },
+    ] : [])
   ];
 
   const renderPage = () => {
     switch (currentPage) {
       case 'home': return <HomePage onNavigate={setCurrentPage} />;
       case 'report': return <ReportIssuePage onSubmit={addComplaint} onNavigate={setCurrentPage} />;
-      case 'track': return <TrackComplaintPage complaints={complaints} />;
-      case 'map': return <MapPage complaints={complaints} />;
+      case 'track': return <TrackComplaintPage complaints={complaints} initialId={trackId} onClearId={() => setTrackId(null)} onConfirm={confirmComplaint} />;
+      case 'map': return (
+        <MapPage 
+          complaints={complaints} 
+          onTrackComplaint={(id) => {
+            setTrackId(id);
+            setCurrentPage('track');
+          }} 
+          onConfirm={confirmComplaint}
+        />
+      );
       case 'how-it-works': return <HowItWorksPage />;
       case 'dashboard': return (
         <DashboardPage 
           complaints={complaints} 
-          isAuthority={!!isAuthority} 
+          isAuthority={isAuthority} 
+          isSuperior={isSuperior}
           onUpdateStatus={updateComplaintStatus}
+          onDeleteComplaint={deleteComplaint}
           onLogout={() => {
-            setIsAuthority(null);
+            setIsAuthority(false);
+            setIsSuperior(false);
             setCurrentPage('home');
           }}
         />
       );
       case 'about': return <AboutPage />;
       case 'contact': return <ContactPage />;
+      case 'news': return <NewsPage />;
+      case 'profile': return (
+        <ProfilePage 
+          user={isUser} 
+          onNavigate={setCurrentPage} 
+          onLogout={handleLogout} 
+        />
+      );
       case 'authority-login': return (
         <AuthorityLoginPage 
           onLogin={setIsAuthority} 
+          onNavigate={setCurrentPage} 
+        />
+      );
+      case 'superior-login': return (
+        <SuperiorLoginPage 
+          onLogin={(uid) => {
+            setIsSuperior(true);
+            setIsAuthority(true);
+          }} 
           onNavigate={setCurrentPage} 
         />
       );
@@ -121,51 +190,67 @@ function AppContent({
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                <Globe className="w-6 h-6" />
+            <div className="flex items-center gap-8 overflow-x-auto no-scrollbar py-2">
+              <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => setCurrentPage('home')}>
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                  <Globe className="w-6 h-6" />
+                </div>
+                <span className="text-xl font-bold tracking-tight text-slate-900 hidden sm:inline">
+                  Civic<span className="text-blue-600">Connect</span>
+                </span>
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">
-                Civic<span className="text-blue-600">Connect</span>
-              </span>
-            </div>
 
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-1">
-              {navLinks.filter(link => {
-                if (isUser || isAuthority) {
-                  return link.id !== 'user-login' && link.id !== 'authority-login';
-                }
-                return true;
-              }).map((link) => (
+              {/* Main Menu - Now next to logo */}
+              <div className="flex items-center space-x-1">
+                {navLinks.map((link) => (
+                  <button
+                    key={link.id}
+                    onClick={() => setCurrentPage(link.id as Page)}
+                    className={cn(
+                      "px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap",
+                      currentPage === link.id 
+                        ? "bg-blue-50 text-blue-600" 
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    )}
+                  >
+                    {link.icon && <link.icon className="w-3.5 h-3.5" />}
+                    {link.label}
+                  </button>
+                ))}
                 <button
-                  key={link.id}
-                  onClick={() => setCurrentPage(link.id as Page)}
-                  className={cn(
-                    "px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2",
-                    currentPage === link.id 
-                      ? "bg-blue-50 text-blue-600" 
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  )}
+                  onClick={() => setCurrentPage('report')}
+                  className="ml-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap"
                 >
-                  {link.icon && <link.icon className="w-4 h-4" />}
-                  {link.label}
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Report Now
                 </button>
-              ))}
+              </div>
             </div>
 
             {/* Actions */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
               {isUser && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100">
-                  <User className="w-3.5 h-3.5" />
-                  {isUser.name}
-                </div>
+                <button 
+                  onClick={() => setCurrentPage('profile')}
+                  className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                  title="Profile Settings"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
               )}
-              {isAuthority && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold border border-slate-800">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  ID: {isAuthority}
+              {(isUser || isAuthority) && (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold border border-blue-100">
+                    <User className="w-3.5 h-3.5" />
+                    {isAuthority ? 'Authority' : (isUser?.fullName || isUser?.email)}
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
                 </div>
               )}
               <div className="flex items-center bg-slate-100 rounded-full px-3 py-1 gap-2">
@@ -197,80 +282,8 @@ function AppContent({
                 )}
               </div>
             </div>
-
-            {/* Mobile Menu Button */}
-            <div className="md:hidden flex items-center gap-4">
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 rounded-lg text-slate-600 hover:bg-slate-100"
-              >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-            </div>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white border-b border-slate-200 overflow-hidden"
-            >
-              <div className="px-4 pt-2 pb-6 space-y-1">
-                {navLinks.filter(link => {
-                  if (isUser || isAuthority) {
-                    return link.id !== 'user-login' && link.id !== 'authority-login';
-                  }
-                  return true;
-                }).map((link) => (
-                  <button
-                    key={link.id}
-                    onClick={() => {
-                      setCurrentPage(link.id as Page);
-                      setIsMenuOpen(false);
-                    }}
-                    className={cn(
-                      "flex items-center gap-3 w-full px-4 py-3 rounded-xl text-base font-medium transition-all",
-                      currentPage === link.id 
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-200" 
-                        : "text-slate-600 hover:bg-slate-50"
-                    )}
-                  >
-                    <link.icon className="w-5 h-5" />
-                    {link.label}
-                  </button>
-                ))}
-                <div className="pt-4 flex items-center justify-between px-4">
-                  <div className="flex items-center gap-2">
-                    <Languages className="w-5 h-5 text-slate-400" />
-                    <select 
-                      value={language}
-                      onChange={(e) => setLanguage(e.target.value as Language)}
-                      className="bg-transparent font-medium focus:outline-none"
-                    >
-                      <option value="en">English</option>
-                      <option value="hi">Hindi</option>
-                      <option value="ta">Tamil</option>
-                    </select>
-                  </div>
-                  <button 
-                    onClick={() => setIsSimpleMode(!isSimpleMode)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium",
-                      isSimpleMode ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"
-                    )}
-                  >
-                    <Accessibility className="w-4 h-4" />
-                    {t.nav.simpleMode}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </nav>
 
       {/* Main Content */}
@@ -330,32 +343,33 @@ function AppContent({
             <div>
               <h4 className="text-white font-semibold mb-4">Account</h4>
               <ul className="space-y-2 text-sm">
-                {!(isUser || isAuthority) ? (
-                  <>
-                    <li>
-                      <button 
-                        onClick={() => setCurrentPage('user-login')} 
-                        className="hover:text-blue-400 transition-colors flex items-center gap-2"
-                      >
-                        <User className="w-3 h-3" />
-                        User Login
-                      </button>
-                    </li>
-                    <li>
-                      <button 
-                        onClick={() => setCurrentPage('authority-login')} 
-                        className="hover:text-blue-400 transition-colors flex items-center gap-2"
-                      >
-                        <ShieldCheck className="w-3 h-3" />
-                        Authority Login
-                      </button>
-                    </li>
-                  </>
-                ) : (
-                  <li>
-                    <p className="text-slate-400 italic">Logged in as {isAuthority ? 'Authority' : 'User'}</p>
-                  </li>
-                )}
+                <li>
+                  <button 
+                    onClick={() => setCurrentPage('user-login')} 
+                    className="hover:text-blue-400 transition-colors flex items-center gap-2"
+                  >
+                    <User className="w-3 h-3" />
+                    User Login
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => setCurrentPage('authority-login')} 
+                    className="hover:text-blue-400 transition-colors flex items-center gap-2"
+                  >
+                    <ShieldCheck className="w-3 h-3" />
+                    Authority Login
+                  </button>
+                </li>
+                <li>
+                  <button 
+                    onClick={() => setCurrentPage('superior-login')} 
+                    className="hover:text-blue-400 transition-colors flex items-center gap-2"
+                  >
+                    <Crown className="w-3 h-3" />
+                    Superior Login
+                  </button>
+                </li>
               </ul>
             </div>
           </div>
@@ -370,45 +384,195 @@ function AppContent({
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [trackId, setTrackId] = useState<string | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [language, setLanguage] = useState<Language>('en');
   const [isSimpleMode, setIsSimpleMode] = useState(false);
-  const [isAuthority, setIsAuthority] = useState<any>(null);
+  const [isAuthority, setIsAuthority] = useState(false);
+  const [isSuperior, setIsSuperior] = useState(false);
   const [isUser, setIsUser] = useState<any>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem('civic_connect_complaints');
-    if (saved) {
-      setComplaints(JSON.parse(saved));
-    } else {
-      setComplaints(MOCK_COMPLAINTS);
-      localStorage.setItem('civic_connect_complaints', JSON.stringify(MOCK_COMPLAINTS));
-    }
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const isDeveloper = user.email === 'lathika292006@gmail.com';
+        
+        // If developer, set state immediately to avoid permission blocks
+        if (isDeveloper) {
+          setIsSuperior(true);
+          setIsAuthority(true);
+          setIsUser(null);
+        }
+
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const role = userDoc.exists() ? userDoc.data().role : null;
+          
+          if (isDeveloper || role === 'superior_admin') {
+            setIsSuperior(true);
+            setIsAuthority(true);
+            setIsUser(null);
+            
+            // If developer but no role in DB, promote to superior_admin
+            if (isDeveloper && !role) {
+              await setDoc(doc(db, 'users', user.uid), {
+                uid: user.uid,
+                fullName: 'Chief Administrator',
+                email: user.email,
+                role: 'superior_admin',
+                createdAt: new Date().toISOString()
+              }, { merge: true });
+            }
+          } else if (role === 'admin') {
+            setIsAuthority(true);
+            setIsSuperior(false);
+            setIsUser(null);
+          } else if (userDoc.exists()) {
+            setIsUser(userDoc.data());
+            setIsAuthority(false);
+            setIsSuperior(false);
+          } else {
+            // New user or social login without profile doc
+            setIsUser({ email: user.email, uid: user.uid });
+            setIsAuthority(false);
+            setIsSuperior(false);
+          }
+        } catch (error) {
+          console.error("Error fetching user profile:", error);
+        }
+      } else {
+        setIsUser(null);
+        setIsAuthority(false);
+        setIsSuperior(false);
+      }
+      setIsAuthReady(true);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const addComplaint = (newComplaint: Complaint) => {
-    const updated = [newComplaint, ...complaints];
-    setComplaints(updated);
-    localStorage.setItem('civic_connect_complaints', JSON.stringify(updated));
-    
-    // Add notification
-    const notification: Notification = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: 'Complaint Submitted',
-      message: `Your complaint ${newComplaint.id} has been successfully submitted.`,
-      type: 'success',
-      createdAt: new Date().toISOString(),
-      read: false
-    };
-    setNotifications([notification, ...notifications]);
+  useEffect(() => {
+    const q = query(collection(db, 'complaints'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log(`Firestore snapshot received: ${snapshot.size} complaints`);
+      const fetchedComplaints = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as Complaint[];
+      
+      setComplaints(fetchedComplaints);
+
+      // Seed with mock data if empty (one-time)
+      const hasSeeded = sessionStorage.getItem('hasSeeded');
+      if (fetchedComplaints.length === 0 && !hasSeeded) {
+        sessionStorage.setItem('hasSeeded', 'true');
+        MOCK_COMPLAINTS.forEach(async (c) => {
+          try {
+            await setDoc(doc(db, 'complaints', c.id), {
+              ...c,
+              authorUid: 'system',
+              upvotes: c.upvotes || 0,
+              confirmations: c.confirmations || 0,
+              isCommunityVerified: c.isCommunityVerified || false
+            });
+          } catch (e) {
+            console.error("Error seeding data:", e);
+          }
+        });
+      }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'complaints');
+    });
+
+    return () => unsubscribe();
+  }, [isAuthority]);
+
+  const addComplaint = async (newComplaint: Complaint) => {
+    try {
+      const complaintData = {
+        ...newComplaint,
+        authorUid: auth.currentUser?.uid || 'anonymous',
+        createdAt: new Date().toISOString()
+      };
+      
+      await setDoc(doc(db, 'complaints', newComplaint.id), complaintData);
+      
+      // Add notification
+      const notification: Notification = {
+        id: Math.random().toString(36).substr(2, 9),
+        title: 'Complaint Submitted',
+        message: `Your complaint ${newComplaint.id} has been successfully submitted.`,
+        type: 'success',
+        createdAt: new Date().toISOString(),
+        read: false
+      };
+      setNotifications([notification, ...notifications]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'complaints');
+    }
   };
 
-  const updateComplaintStatus = (id: string, status: any) => {
-    const updated = complaints.map(c => c.id === id ? { ...c, status } : c);
-    setComplaints(updated);
-    localStorage.setItem('civic_connect_complaints', JSON.stringify(updated));
+  const updateComplaintStatus = async (id: string, status: any) => {
+    try {
+      await updateDoc(doc(db, 'complaints', id), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `complaints/${id}`);
+    }
+  };
+
+  const deleteComplaint = async (id: string) => {
+    try {
+      // In this app, we use the complaint.id as the firestore doc id
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'complaints', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `complaints/${id}`);
+    }
+  };
+
+  const confirmComplaint = async (id: string) => {
+    if (!auth.currentUser) {
+      setCurrentPage('user-login');
+      return;
+    }
+
+    try {
+      const confirmationId = `${auth.currentUser.uid}`;
+      const confirmationRef = doc(db, 'complaints', id, 'confirmations', confirmationId);
+      
+      // Check if already confirmed
+      const existing = await getDoc(confirmationRef);
+      if (existing.exists()) {
+        alert("You have already confirmed this issue.");
+        return;
+      }
+
+      // Atomic update using batch
+      const batch = writeBatch(db);
+      const complaintRef = doc(db, 'complaints', id);
+      const complaintDoc = await getDoc(complaintRef);
+      
+      if (complaintDoc.exists()) {
+        const currentConfirmations = (complaintDoc.data().confirmations || 0) + 1;
+        
+        batch.set(confirmationRef, {
+          complaintId: id,
+          userUid: auth.currentUser.uid,
+          createdAt: new Date().toISOString()
+        });
+
+        batch.update(complaintRef, {
+          confirmations: increment(1),
+          isCommunityVerified: currentConfirmations >= 5
+        });
+
+        await batch.commit();
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `complaints/${id}`);
+    }
   };
 
   return (
@@ -416,8 +580,8 @@ export default function App() {
       <AppContent 
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
-        isMenuOpen={isMenuOpen}
-        setIsMenuOpen={setIsMenuOpen}
+        trackId={trackId}
+        setTrackId={setTrackId}
         complaints={complaints}
         addComplaint={addComplaint}
         notifications={notifications}
@@ -428,6 +592,10 @@ export default function App() {
         isUser={isUser}
         setIsUser={setIsUser}
         updateComplaintStatus={updateComplaintStatus}
+        deleteComplaint={deleteComplaint}
+        confirmComplaint={confirmComplaint}
+        isSuperior={isSuperior}
+        setIsSuperior={setIsSuperior}
       />
     </LanguageProvider>
   );

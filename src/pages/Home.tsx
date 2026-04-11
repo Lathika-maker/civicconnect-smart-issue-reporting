@@ -1,5 +1,9 @@
 import React from 'react';
-import { ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Zap, Users, BarChart3, Globe, MapPin, Search } from 'lucide-react';
+import { 
+  ArrowRight, CheckCircle2, AlertTriangle, ShieldCheck, Zap, Users, 
+  BarChart3, Globe, MapPin, Search, Sparkles, Building2, Shield, 
+  Heart, Activity, Camera, Terminal, Cpu, Network, Newspaper
+} from 'lucide-react';
 import { motion } from 'motion/react';
 import { Page } from '../App';
 import { useLanguage } from '../LanguageContext';
@@ -15,179 +19,175 @@ export default function HomePage({ onNavigate }: HomeProps) {
   return (
     <div className="space-y-32 pb-24">
       {/* Hero Section - Editorial Style */}
-      <section className="relative min-h-[80vh] flex items-center overflow-hidden rounded-[2.5rem] bg-slate-950 text-white shadow-3xl">
+      <section className="relative min-h-[85vh] flex items-center overflow-hidden rounded-[3rem] bg-slate-950 text-white shadow-3xl">
         {/* Background Gradient & Pattern */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-blue-600/30 rounded-full blur-[120px] animate-pulse" />
-          <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[100px]" />
+          <div className="absolute top-[-10%] right-[-10%] w-[70%] h-[70%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse-glow" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[100px]" />
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+          
+          {/* Animated Grid Lines */}
+          <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:40px_40px]" />
         </div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-8 md:px-16 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="space-y-10">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold uppercase tracking-widest"
-            >
-              <Zap className="w-4 h-4" />
-              Smart City Initiative
-            </motion.div>
-            
             <div className="space-y-6">
               <motion.h1 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-6xl md:text-8xl hero-text"
+                transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+                className="text-7xl md:text-9xl hero-text"
               >
-                {t.home.heroTitle.split(' ').map((word, i) => (
-                  <span key={i} className={i === 1 ? "text-blue-500 block" : "block"}>
-                    {word}
-                  </span>
-                ))}
+                Building <span className="text-blue-500 text-serif-italic font-light tracking-normal lowercase">Smarter</span> Cities Together.
               </motion.h1>
               
               <motion.p 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.2, duration: 0.8 }}
                 className="text-xl text-slate-400 max-w-lg leading-relaxed font-light"
               >
-                {t.home.heroSubtitle}
+                {t.home.subtitle}
               </motion.p>
             </div>
 
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
               className="flex flex-wrap gap-6"
             >
               <button 
                 onClick={() => onNavigate('report')}
-                className="px-10 py-5 bg-blue-600 text-white rounded-2xl font-bold shadow-2xl shadow-blue-600/20 hover:bg-blue-500 transition-all flex items-center gap-3 group text-lg"
+                className="px-12 py-6 bg-blue-600 text-white rounded-2xl font-bold shadow-2xl shadow-blue-600/40 hover:bg-blue-500 hover:-translate-y-1 transition-all flex items-center gap-3 group text-lg"
               >
                 {t.home.reportBtn}
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
               </button>
               <button 
-                onClick={() => onNavigate('track')}
-                className="px-10 py-5 bg-white/5 text-white rounded-2xl font-bold hover:bg-white/10 transition-all border border-white/10 backdrop-blur-sm text-lg"
+                onClick={() => onNavigate('map')}
+                className="px-12 py-6 bg-white/5 text-white rounded-2xl font-bold hover:bg-white/10 hover:-translate-y-1 transition-all border border-white/10 backdrop-blur-sm text-lg"
               >
-                {t.home.trackBtn}
+                Explore Map
               </button>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="flex items-center gap-8 pt-8 border-t border-white/5"
-            >
-              <div className="space-y-1">
-                <p className="text-3xl font-bold text-white">12k+</p>
-                <p className="micro-label">Issues Resolved</p>
-              </div>
-              <div className="w-px h-10 bg-white/10" />
-              <div className="space-y-1">
-                <p className="text-3xl font-bold text-white">4.8/5</p>
-                <p className="micro-label">Citizen Rating</p>
-              </div>
             </motion.div>
           </div>
 
           <div className="hidden lg:block relative">
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
+              initial={{ opacity: 0, scale: 0.9, rotate: -5 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ delay: 0.4, duration: 1.2, ease: [0.23, 1, 0.32, 1] }}
               className="relative z-20"
             >
               {/* Floating Dashboard Preview */}
-              <div className="glass-card rounded-[2rem] p-8 space-y-8 animate-float">
+              <div className="glass-card rounded-[3rem] p-10 space-y-10 animate-float glow-blue">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white">
-                      <BarChart3 className="w-6 h-6" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/20">
+                      <Activity className="w-7 h-7" />
                     </div>
                     <div>
-                      <p className="text-slate-900 font-bold">Live Statistics</p>
-                      <p className="text-xs text-slate-500">Updated just now</p>
+                      <p className="text-slate-900 dark:text-white text-lg font-bold">City Pulse</p>
+                      <p className="text-xs text-slate-500">Real-time monitoring active</p>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-green-100 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                    Active
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-green-500/10 text-green-500 rounded-full text-[10px] font-bold uppercase tracking-widest border border-green-500/20">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    Live
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="micro-label mb-1">Response Time</p>
-                    <p className="text-2xl font-bold text-slate-900">1.4h</p>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="micro-label mb-1">Satisfaction</p>
-                    <p className="text-2xl font-bold text-slate-900">98%</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="micro-label">Recent Activity</p>
+                <div className="space-y-4">
+                  <p className="micro-label">Live Operations Feed</p>
                   {[
-                    { icon: MapPin, text: "Pothole reported in Sector 4", color: "text-blue-500" },
-                    { icon: CheckCircle2, text: "Streetlight fixed in MG Road", color: "text-green-500" },
-                    { icon: AlertTriangle, text: "New leakage detected", color: "text-amber-500" }
+                    { icon: MapPin, text: "Pothole reported in Sector 4", color: "text-blue-500", time: "2m ago" },
+                    { icon: CheckCircle2, text: "Streetlight fixed in MG Road", color: "text-green-500", time: "15m ago" },
+                    { icon: AlertTriangle, text: "New leakage detected", color: "text-amber-500", time: "1h ago" }
                   ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-50 shadow-sm">
-                      <item.icon className={cn("w-4 h-4", item.color)} />
-                      <span className="text-xs font-medium text-slate-700">{item.text}</span>
+                    <div key={i} className="flex items-center justify-between p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-50 dark:border-slate-700 shadow-sm group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-slate-900", item.color)}>
+                          <item.icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{item.text}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{item.time}</span>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Decorative elements */}
+              <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/20 rounded-full blur-3xl -z-10" />
+              <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-600/20 rounded-full blur-3xl -z-10" />
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Stats Bento Grid */}
-      <section className="max-w-7xl mx-auto px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-2 bg-white p-10 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-              <Users className="w-8 h-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-3xl font-bold text-slate-900">Community Powered</h3>
-              <p className="text-slate-500 leading-relaxed">
-                Join thousands of citizens who are actively participating in making their city better. Your voice matters.
-              </p>
-            </div>
-            <button className="text-blue-600 font-bold flex items-center gap-2 group">
-              Learn more <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
-          
-          <div className="bg-blue-600 p-10 rounded-[2rem] text-white space-y-6">
-            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center">
-              <Zap className="w-8 h-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-5xl font-bold">40%</h3>
-              <p className="text-blue-100 text-sm font-medium">Faster resolution time compared to traditional methods.</p>
-            </div>
-          </div>
+      {/* Quick Access Toolbar - Catchy & Simple */}
+      <section className="max-w-7xl mx-auto px-8 -mt-16 relative z-30">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { id: 'report', label: 'Report Issue', icon: AlertTriangle, color: 'bg-rose-500', desc: 'Fast submission' },
+            { id: 'track', label: 'Track Status', icon: Search, color: 'bg-blue-500', desc: 'Real-time updates' },
+            { id: 'map', label: 'Civic Map', icon: MapPin, color: 'bg-emerald-500', desc: 'Interactive view' },
+            { id: 'news', label: 'City News', icon: Newspaper, color: 'bg-amber-500', desc: 'Latest updates' }
+          ].map((item, i) => (
+            <motion.button
+              key={item.id}
+              whileHover={{ y: -8, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onNavigate(item.id as any)}
+              className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl hover:shadow-blue-500/10 transition-all text-left flex flex-col gap-6 group"
+            >
+              <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg", item.color)}>
+                <item.icon className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-blue-500 transition-colors">{item.label}</h3>
+                <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">{item.desc}</p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+      </section>
 
-          <div className="bg-slate-900 p-10 rounded-[2rem] text-white space-y-6">
-            <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center">
-              <ShieldCheck className="w-8 h-8 text-blue-400" />
+      {/* Simple 3-Step Process - Catchy & Visual */}
+      <section className="max-w-7xl mx-auto px-8 py-24">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          {[
+            { 
+              title: "Spot It", 
+              desc: "See a civic issue? Take a photo and note the location.",
+              icon: Camera,
+              color: "bg-rose-500"
+            },
+            { 
+              title: "Report It", 
+              desc: "Submit your report in seconds through our simple interface.",
+              icon: Zap,
+              color: "bg-blue-500"
+            },
+            { 
+              title: "Track It", 
+              desc: "Watch as authorities verify and resolve the issue in real-time.",
+              icon: Activity,
+              color: "bg-emerald-500"
+            }
+          ].map((item, i) => (
+            <div key={i} className="text-center space-y-8 p-12 rounded-[3rem] bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 transition-all hover:shadow-xl group">
+              <div className={cn("w-24 h-24 mx-auto rounded-[2rem] flex items-center justify-center text-white shadow-2xl group-hover:scale-110 transition-transform", item.color)}>
+                <item.icon className="w-12 h-12" />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-3xl font-bold text-slate-900 dark:text-white">{item.title}</h3>
+                <p className="text-slate-500 dark:text-slate-400 text-lg font-light leading-relaxed">{item.desc}</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-3xl font-bold">Secure</h3>
-              <p className="text-slate-400 text-sm">End-to-end encrypted reporting and verification.</p>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -196,9 +196,9 @@ export default function HomePage({ onNavigate }: HomeProps) {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
           <div className="space-y-4">
             <p className="micro-label text-blue-600">Categories</p>
-            <h2 className="text-5xl font-bold text-slate-900 tracking-tight">{t.home.problemsTitle}</h2>
+            <h2 className="text-5xl font-bold text-slate-900 dark:text-white tracking-tight">{t.home.problemsTitle}</h2>
           </div>
-          <p className="text-slate-500 max-w-md text-lg font-light">
+          <p className="text-slate-500 dark:text-slate-400 max-w-md text-lg font-light">
             {t.home.problemsSubtitle}
           </p>
         </div>
@@ -210,59 +210,59 @@ export default function HomePage({ onNavigate }: HomeProps) {
               desc: "Damaged roads causing accidents and vehicle wear.",
               icon: AlertTriangle,
               color: "text-amber-500",
-              bg: "bg-amber-50"
+              bg: "bg-amber-50 dark:bg-amber-900/20"
             },
             { 
               title: "Sanitation Issues", 
               desc: "Uncollected garbage and poor waste management.",
               icon: ShieldCheck,
               color: "text-green-500",
-              bg: "bg-green-50"
+              bg: "bg-green-50 dark:bg-green-900/20"
             },
             { 
               title: "Electricity Damage", 
               desc: "Exposed wires or faulty streetlights in your area.",
               icon: Zap,
               color: "text-blue-500",
-              bg: "bg-blue-50"
+              bg: "bg-blue-50 dark:bg-blue-900/20"
             },
             { 
               title: "Water Leakage", 
               desc: "Wasted water from broken pipes or main lines.",
               icon: Globe,
               color: "text-cyan-500",
-              bg: "bg-cyan-50"
+              bg: "bg-cyan-50 dark:bg-cyan-900/20"
             },
             { 
               title: "Drainage Problems", 
               desc: "Blocked drains leading to waterlogging and health risks.",
               icon: MapPin,
               color: "text-indigo-500",
-              bg: "bg-indigo-50"
+              bg: "bg-indigo-50 dark:bg-indigo-900/20"
             },
             { 
               title: "Communication Gap", 
-              desc: "Difficulty reaching authorities via traditional phone calls.",
+              desc: "Difficulty reaching authorities via traditional methods.",
               icon: Users,
               color: "text-rose-500",
-              bg: "bg-rose-50"
+              bg: "bg-rose-50 dark:bg-rose-900/20"
             }
           ].map((item, i) => (
             <motion.div 
               key={i}
               whileHover={{ y: -10 }}
-              className="group p-10 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:border-blue-100 transition-all duration-500 space-y-6"
+              className="group p-12 bg-white dark:bg-slate-900 rounded-[3rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:border-blue-100 dark:hover:border-blue-900/50 transition-all duration-500 space-y-8"
             >
-              <div className={`w-16 h-16 ${item.bg} ${item.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
-                <item.icon className="w-8 h-8" />
+              <div className={`w-20 h-20 ${item.bg} ${item.color} rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
+                <item.icon className="w-10 h-10" />
               </div>
-              <div className="space-y-3">
-                <h3 className="text-2xl font-bold text-slate-900">{item.title}</h3>
-                <p className="text-slate-500 leading-relaxed font-light">{item.desc}</p>
+              <div className="space-y-4">
+                <h3 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{item.title}</h3>
+                <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-light">{item.desc}</p>
               </div>
               <div className="pt-4">
-                <button className="w-12 h-12 rounded-full border border-slate-100 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <ArrowRight className="w-5 h-5" />
+                <button className="w-14 h-14 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                  <ArrowRight className="w-6 h-6" />
                 </button>
               </div>
             </motion.div>
@@ -272,21 +272,24 @@ export default function HomePage({ onNavigate }: HomeProps) {
 
       {/* CTA Section */}
       <section className="max-w-7xl mx-auto px-8">
-        <div className="bg-blue-600 rounded-[3rem] p-16 md:p-24 text-center space-y-10 relative overflow-hidden">
+        <div className="bg-slate-950 rounded-[4rem] p-16 md:p-32 text-center space-y-12 relative overflow-hidden shadow-3xl">
           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
-          <div className="relative z-10 space-y-6">
-            <h2 className="text-5xl md:text-7xl font-bold text-white tracking-tighter">Ready to make a difference?</h2>
-            <p className="text-blue-100 text-xl max-w-2xl mx-auto font-light">
-              Join our community today and help us build a better, smarter city for everyone.
+          <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-indigo-600/20 rounded-full blur-3xl" />
+          
+          <div className="relative z-10 space-y-8">
+            <h2 className="text-6xl md:text-8xl font-bold text-white tracking-tighter leading-[0.85]">Ready to make a <span className="text-serif-italic font-light tracking-normal lowercase text-blue-500">difference?</span></h2>
+            <p className="text-slate-400 text-2xl max-w-2xl mx-auto font-light leading-relaxed">
+              Join our community today and help us build a better, smarter city for everyone. Your first report is just a click away.
             </p>
           </div>
-          <div className="relative z-10 flex justify-center">
+          <div className="relative z-10 flex justify-center pt-8">
             <button 
               onClick={() => onNavigate('report')}
-              className="px-12 py-6 bg-white text-blue-600 rounded-2xl font-bold text-xl shadow-2xl hover:bg-blue-50 transition-all flex items-center gap-3 group"
+              className="px-16 py-8 bg-blue-600 text-white rounded-[2.5rem] font-bold text-2xl shadow-3xl shadow-blue-600/20 hover:bg-blue-500 hover:-translate-y-2 transition-all flex items-center gap-4 group"
             >
               Report an Issue Now
-              <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
+              <ArrowRight className="w-8 h-8 group-hover:translate-x-2 transition-transform" />
             </button>
           </div>
         </div>

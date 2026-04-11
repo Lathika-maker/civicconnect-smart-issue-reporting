@@ -1,0 +1,73 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "fullName": { "type": "string", "description": "Full name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "User role" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Registration date" }
+      },
+      "required": ["uid", "fullName", "email", "role"]
+    },
+    "Complaint": {
+      "title": "Civic Complaint",
+      "description": "A civic issue reported by a citizen",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Complaint ID" },
+        "fullName": { "type": "string", "description": "Name of reporter" },
+        "phoneNumber": { "type": "string", "description": "Phone number of reporter" },
+        "email": { "type": "string", "format": "email", "description": "Email of reporter" },
+        "category": { "type": "string", "description": "Issue category" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "imageUrl": { "type": "string", "description": "URL to evidence image" },
+        "audioUrl": { "type": "string", "description": "URL or base64 of audio evidence" },
+        "transcription": { "type": "string", "description": "Transcribed text from audio" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "status": { "type": "string", "enum": ["Submitted", "Verified", "Assigned", "In Progress", "Resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "upvotes": { "type": "number" },
+        "confirmations": { "type": "number" },
+        "isCommunityVerified": { "type": "boolean" },
+        "authorUid": { "type": "string", "description": "UID of the reporter" }
+      },
+      "required": ["id", "category", "description", "location", "status", "createdAt"]
+    },
+    "Confirmation": {
+      "title": "Issue Confirmation",
+      "description": "A confirmation of an issue by a community member",
+      "type": "object",
+      "properties": {
+        "complaintId": { "type": "string" },
+        "userUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["complaintId", "userUid", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/complaints/{complaintId}": {
+      "schema": "Complaint",
+      "description": "Civic issue reports"
+    },
+    "/complaints/{complaintId}/confirmations/{userId}": {
+      "schema": "Confirmation",
+      "description": "Tracking confirmations to prevent double-voting"
+    }
+  }
+}

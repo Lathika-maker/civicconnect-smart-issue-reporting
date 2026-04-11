@@ -13,6 +13,8 @@ export type ComplaintStatus =
   | 'In Progress' 
   | 'Resolved';
 
+export type UserRole = 'user' | 'admin' | 'superior_admin';
+
 export interface Complaint {
   id: string;
   fullName: string;
@@ -21,6 +23,8 @@ export interface Complaint {
   category: IssueCategory;
   description: string;
   imageUrl?: string;
+  audioUrl?: string;
+  transcription?: string;
   location: {
     lat: number;
     lng: number;

@@ -1,0 +1,137 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields:
+    //   - uid: string (required) - Firebase Auth UID
+    //   - fullName: string (required) - Full name
+    //   - email: string (required, email format) - Email address
+    //   - role: string (required, enum: ['user', 'admin', 'superior_admin']) - User role
+    //   - createdAt: string (required, ISO 8601) - Registration date
+    //
+    // Collection: complaints
+    // Fields:
+    //   - id: string (required) - Complaint ID
+    //   - category: string (required) - Issue category
+    //   - description: string (required, max 1000 chars) - Detailed description
+    //   - location: map (required) { lat: number, lng: number, address: string }
+    //   - status: string (required, enum) - Current status
+    //   - confirmations: number (required) - Count of confirmations
+    //   - authorUid: string (required) - UID of reporter
+    //   - createdAt: string (required, ISO 8601) - Submission date
+    //
+    // Collection: complaints/{complaintId}/confirmations
+    // Fields:
+    //   - userUid: string (required) - UID of confirmer
+    //   - createdAt: string (required, ISO 8601) - Confirmation date
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superior_admin')) ||
+          request.auth.token.email == "lathika292006@gmail.com");
+    }
+
+    function isSuperior() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superior_admin') ||
+          request.auth.token.email == "lathika292006@gmail.com");
+    }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+    
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'fullName', 'email', 'role', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.fullName is string && data.fullName.size() > 0 && data.fullName.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['user', 'admin', 'superior_admin'] &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidComplaint(data) {
+      return hasOnlyAllowedFields(['id', 'fullName', 'phoneNumber', 'email', 'category', 'description', 'imageUrl', 'location', 'status', 'createdAt', 'upvotes', 'confirmations', 'isCommunityVerified', 'authorUid']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.category is string &&
+             data.description is string && data.description.size() > 0 && data.description.size() <= 1000 &&
+             data.location is map &&
+             data.status in ['Submitted', 'Verified', 'Assigned', 'In Progress', 'Resolved'] &&
+             data.confirmations is number && data.confirmations >= 0 &&
+             // Allow owner, admin, anonymous, or system
+             (
+               (isAuthenticated() && data.authorUid == request.auth.uid) || 
+               (data.authorUid == 'anonymous') || 
+               (data.authorUid == 'system') || 
+               isAdmin()
+             ) &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+    }
+
+    match /complaints/{complaintId} {
+      allow read: if true; // Publicly readable
+      allow create: if isValidComplaint(request.resource.data);
+      allow update: if isAdmin() || isSuperior() || (
+        // Allow anyone to increment confirmations
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmations', 'isCommunityVerified']) &&
+        request.resource.data.confirmations == resource.data.confirmations + 1
+      ) || (
+        isAuthenticated() && isOwner(resource.data.authorUid) && isValidComplaint(request.resource.data)
+      );
+      allow delete: if isSuperior();
+      
+      match /confirmations/{userId} {
+        allow read: if true;
+        allow create: if (isOwner(userId) || request.auth == null) && 
+                      !exists(/databases/$(database)/documents/complaints/$(complaintId)/confirmations/$(userId)) &&
+                      isValidDateString(request.resource.data.createdAt);
+      }
+    }
+  }
+}
