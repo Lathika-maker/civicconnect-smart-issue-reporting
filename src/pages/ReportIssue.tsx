@@ -10,8 +10,7 @@ import { Complaint, IssueCategory } from '../types';
 import { Page } from '../App';
 
 import { useLanguage } from '../LanguageContext';
-import { auth, storage } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth } from '../firebase';
 import { transcribeAudio } from '../services/geminiService';
 
 interface ReportIssueProps {
@@ -28,6 +27,8 @@ const CATEGORIES: IssueCategory[] = [
   'Streetlight Failure'
 ];
 
+import imageCompression from 'browser-image-compression';
+
 export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssueProps) {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
@@ -42,6 +43,7 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [complaintId, setComplaintId] = useState('');
   const [isLocating, setIsLocating] = useState(false);
@@ -106,8 +108,14 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
         async (position) => {
           const { latitude, longitude } = position.coords;
           try {
-            // Using Nominatim for real reverse geocoding
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            // Using Nominatim with a very short timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 seconds max
+            
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`, {
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
             const data = await response.json();
             const address = data.display_name || `Geotagged: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             setFormData(prev => ({
@@ -236,7 +244,9 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [compressedImageBlob, setCompressedImageBlob] = useState<Blob | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
@@ -245,6 +255,21 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
         setSelectedImage(reader.result as string);
       };
       reader.readAsDataURL(file);
+
+      // Pre-compress image in background
+      try {
+        const options = {
+          maxSizeMB: 0.1, // Ultra-aggressive compression (100KB)
+          maxWidthOrHeight: 800, // Smaller resolution for faster upload
+          useWebWorker: true,
+          fileType: 'image/webp',
+          initialQuality: 0.6
+        };
+        const compressed = await imageCompression(file, options);
+        setCompressedImageBlob(compressed);
+      } catch (err) {
+        console.error("Pre-compression failed:", err);
+      }
     }
   };
 
@@ -266,28 +291,52 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
     if (!isValid) return;
 
     setIsSubmitting(true);
+    setUploadProgress(20);
     
     const id = `CC-${Math.floor(1000 + Math.random() * 9000)}`;
     
-    let finalAudioUrl = '';
-    let finalImageUrl = '';
-
     try {
-      // Upload Audio if exists
+      let finalAudioBase64 = '';
+      let finalImageBase64 = '';
+
+      // 1. Process Audio to Base64
       if (audioBlob) {
-        const audioRef = ref(storage, `complaints/${id}/audio.webm`);
-        await uploadBytes(audioRef, audioBlob);
-        finalAudioUrl = await getDownloadURL(audioRef);
+        setUploadProgress(40);
+        finalAudioBase64 = await blobToBase64(audioBlob);
+        // Prefix with data URI scheme
+        finalAudioBase64 = `data:audio/webm;base64,${finalAudioBase64}`;
       }
 
-      // Upload Image if exists
+      // 2. Process Image to Base64
       if (imageFile) {
-        const imageRef = ref(storage, `complaints/${id}/evidence.jpg`);
-        await uploadBytes(imageRef, imageFile);
-        finalImageUrl = await getDownloadURL(imageRef);
+        setUploadProgress(60);
+        let fileToUpload: Blob | File = imageFile;
+        
+        if (compressedImageBlob) {
+          fileToUpload = compressedImageBlob;
+        } else {
+          // Fallback compression
+          const options = { 
+            maxSizeMB: 0.1, 
+            maxWidthOrHeight: 800, 
+            useWebWorker: false,
+            fileType: 'image/webp',
+            initialQuality: 0.6
+          };
+          try {
+            fileToUpload = await imageCompression(imageFile, options);
+          } catch (e) {
+            console.error("Final compression fallback failed:", e);
+          }
+        }
+
+        const base64 = await blobToBase64(fileToUpload);
+        finalImageBase64 = `data:image/webp;base64,${base64}`;
       }
 
-      const newComplaint: Complaint = {
+      setUploadProgress(80);
+
+      const newComplaint: any = {
         id,
         fullName: formData.fullName,
         phoneNumber: formData.phoneNumber,
@@ -304,19 +353,23 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
         upvotes: 0,
         confirmations: 0,
         isCommunityVerified: false,
-        authorUid: auth.currentUser?.uid || 'anonymous',
-        audioUrl: finalAudioUrl || undefined,
-        transcription: transcription || undefined,
-        imageUrl: finalImageUrl || undefined
-      } as any;
+        authorUid: auth.currentUser?.uid || 'anonymous'
+      };
 
-      await onSubmit(newComplaint);
+      if (finalAudioBase64) newComplaint.audioUrl = finalAudioBase64;
+      if (finalImageBase64) newComplaint.imageUrl = finalImageBase64;
+      if (transcription) newComplaint.transcription = transcription;
+
+      await onSubmit(newComplaint as Complaint);
+      setUploadProgress(100);
       setComplaintId(id);
       setIsSubmitted(true);
     } catch (error) {
       console.error("Submission failed:", error);
+      alert("Submission failed. Please check your internet connection.");
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -580,10 +633,19 @@ export default function ReportIssuePage({ onSubmit, onNavigate }: ReportIssuePro
               <button 
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-5 bg-slate-900 dark:bg-blue-600 text-white rounded-[1.5rem] font-bold hover:bg-slate-800 dark:hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 disabled:opacity-70"
+                className="flex-1 py-5 bg-slate-900 dark:bg-blue-600 text-white rounded-[1.5rem] font-bold hover:bg-slate-800 dark:hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/20 flex flex-col items-center justify-center gap-1 disabled:opacity-70 relative overflow-hidden"
               >
-                {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
-                Dispatch Report
+                {isSubmitting && (
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${uploadProgress}%` }}
+                    className="absolute bottom-0 left-0 h-1 bg-blue-400 z-10"
+                  />
+                )}
+                <div className="flex items-center gap-3">
+                  {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+                  <span>{isSubmitting ? (uploadProgress < 40 ? "Processing..." : uploadProgress < 80 ? "Uploading Media..." : "Finalizing...") : "Dispatch Report"}</span>
+                </div>
               </button>
               <button 
                 type="button"

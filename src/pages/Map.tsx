@@ -23,6 +23,8 @@ interface MapPageProps {
   complaints: Complaint[];
   onTrackComplaint?: (id: string) => void;
   onConfirm?: (id: string) => void;
+  onUpvote?: (id: string) => void;
+  initialCenter?: [number, number];
 }
 
 const CATEGORY_ICONS: Record<IssueCategory, any> = {
@@ -81,12 +83,25 @@ const createStatusIcon = (status: ComplaintStatus) => {
   });
 };
 
-export default function MapPage({ complaints, onTrackComplaint, onConfirm }: MapPageProps) {
+export default function MapPage({ complaints, onTrackComplaint, onConfirm, onUpvote, initialCenter }: MapPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<IssueCategory | 'All'>('All');
   const [selectedStatus, setSelectedStatus] = useState<ComplaintStatus | 'All'>('All');
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [mapCenter, setMapCenter] = useState<[number, number]>([12.9716, 77.5946]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(initialCenter || [12.9716, 77.5946]);
+
+  useEffect(() => {
+    if (initialCenter) {
+      setMapCenter(initialCenter);
+      // If there's a complaint at these coordinates, select it
+      const complaintAtCenter = complaints.find(
+        c => c.location.lat === initialCenter[0] && c.location.lng === initialCenter[1]
+      );
+      if (complaintAtCenter) {
+        setSelectedComplaint(complaintAtCenter);
+      }
+    }
+  }, [initialCenter, complaints]);
 
   const filteredComplaints = complaints.filter(c => {
     const matchesCategory = selectedCategory === 'All' || c.category === selectedCategory;
@@ -256,7 +271,7 @@ export default function MapPage({ complaints, onTrackComplaint, onConfirm }: Map
               >
                 <div className="h-32 bg-slate-100 relative">
                   <img 
-                    src={`https://picsum.photos/seed/${selectedComplaint.id}/400/200`} 
+                    src={selectedComplaint.imageUrl || `https://picsum.photos/seed/${selectedComplaint.id}/400/200`} 
                     alt="Issue"
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
@@ -288,10 +303,13 @@ export default function MapPage({ complaints, onTrackComplaint, onConfirm }: Map
                     <h4 className="font-bold text-slate-900 leading-tight">{selectedComplaint.location.address}</h4>
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1 text-slate-500">
+                    <button 
+                      onClick={() => onUpvote?.(selectedComplaint.id)}
+                      className="flex items-center gap-1 text-slate-500 hover:text-blue-600 transition-colors"
+                    >
                       <ThumbsUp className="w-3 h-3" />
                       <span>{selectedComplaint.upvotes} Upvotes</span>
-                    </div>
+                    </button>
                     <div className={cn(
                       "flex items-center gap-1 font-bold",
                       selectedComplaint.status === 'Resolved' ? "text-emerald-600" : "text-blue-600"

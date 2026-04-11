@@ -13,6 +13,8 @@ interface TrackComplaintProps {
   initialId?: string | null;
   onClearId?: () => void;
   onConfirm?: (id: string) => void;
+  onUpvote?: (id: string) => void;
+  onViewOnMap?: (lat: number, lng: number) => void;
 }
 
 const STATUS_STEPS: ComplaintStatus[] = [
@@ -23,7 +25,7 @@ const STATUS_STEPS: ComplaintStatus[] = [
   'Resolved'
 ];
 
-export default function TrackComplaintPage({ complaints, initialId, onClearId, onConfirm }: TrackComplaintProps) {
+export default function TrackComplaintPage({ complaints, initialId, onClearId, onConfirm, onUpvote, onViewOnMap }: TrackComplaintProps) {
   const [searchId, setSearchId] = useState(initialId || '');
   const [searchPhone, setSearchPhone] = useState('');
   const [foundComplaint, setFoundComplaint] = useState<Complaint | null>(null);
@@ -132,7 +134,16 @@ export default function TrackComplaintPage({ complaints, initialId, onClearId, o
                           </div>
                         )}
                       </div>
-                      <h3 className="text-2xl font-bold text-slate-900">{currentComplaint.id}</h3>
+                      <div className="flex items-center gap-4">
+                        <h3 className="text-2xl font-bold text-slate-900">{currentComplaint.id}</h3>
+                        <button 
+                          onClick={() => onUpvote?.(currentComplaint.id)}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-full text-xs font-bold transition-all border border-blue-100"
+                        >
+                          <ThumbsUp className="w-3 h-3" />
+                          {currentComplaint.upvotes || 0}
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-3">
                       <div className={cn(
@@ -261,7 +272,7 @@ export default function TrackComplaintPage({ complaints, initialId, onClearId, o
                     <h4 className="text-lg font-bold text-slate-900">Evidence & Map</h4>
                     <div className="aspect-video bg-slate-100 rounded-2xl flex items-center justify-center overflow-hidden group cursor-pointer relative">
                       <img 
-                        src={`https://picsum.photos/seed/${currentComplaint.id}/600/400`} 
+                        src={currentComplaint.imageUrl || `https://picsum.photos/seed/${currentComplaint.id}/600/400`} 
                         alt="Issue evidence"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
@@ -270,7 +281,10 @@ export default function TrackComplaintPage({ complaints, initialId, onClearId, o
                         <ImageIcon className="w-8 h-8 text-white" />
                       </div>
                     </div>
-                    <div className="p-4 bg-blue-50 rounded-2xl flex items-center justify-between">
+                    <div 
+                      className="p-4 bg-blue-50 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                      onClick={() => onViewOnMap?.(currentComplaint.location.lat, currentComplaint.location.lng)}
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white">
                           <MapPin className="w-5 h-5" />

@@ -13,11 +13,17 @@ interface ProfileProps {
   user: any;
   onNavigate: (page: any) => void;
   onLogout: () => void;
+  onUpdateUser?: (userData: any) => void;
 }
 
-export default function ProfilePage({ user, onNavigate, onLogout }: ProfileProps) {
+export default function ProfilePage({ user, onNavigate, onLogout, onUpdateUser }: ProfileProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: user?.fullName || '',
+    email: user?.email || '',
+    phoneNumber: user?.phoneNumber || ''
+  });
   const [preferences, setPreferences] = useState({
     emailNotifications: true,
     pushNotifications: true,
@@ -27,16 +33,24 @@ export default function ProfilePage({ user, onNavigate, onLogout }: ProfileProps
   });
 
   useEffect(() => {
-    const fetchPreferences = async () => {
+    const fetchUserData = async () => {
       if (auth.currentUser) {
         const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists() && userDoc.data().preferences) {
-          setPreferences(userDoc.data().preferences);
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data.preferences) {
+            setPreferences(data.preferences);
+          }
+          setFormData({
+            fullName: data.fullName || user?.fullName || '',
+            email: data.email || user?.email || '',
+            phoneNumber: data.phoneNumber || user?.phoneNumber || ''
+          });
         }
       }
     };
-    fetchPreferences();
-  }, []);
+    fetchUserData();
+  }, [user]);
 
   const handleToggle = (key: keyof typeof preferences) => {
     setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
@@ -48,15 +62,22 @@ export default function ProfilePage({ user, onNavigate, onLogout }: ProfileProps
     
     setIsSaving(true);
     try {
-      await setDoc(doc(db, 'users', auth.currentUser.uid), {
+      const updatedData = {
+        ...formData,
         preferences,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+
+      await setDoc(doc(db, 'users', auth.currentUser.uid), updatedData, { merge: true });
       
+      if (onUpdateUser) {
+        onUpdateUser(updatedData);
+      }
+
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Error saving preferences:", error);
+      console.error("Error saving profile:", error);
     } finally {
       setIsSaving(false);
     }
@@ -121,9 +142,74 @@ export default function ProfilePage({ user, onNavigate, onLogout }: ProfileProps
           </div>
         </div>
 
-        {/* Preferences */}
+        {/* Preferences & Profile Info */}
         <div className="md:col-span-2 space-y-8">
           <div className="bg-white dark:bg-slate-900 p-10 rounded-[3rem] border border-slate-200 dark:border-slate-800 shadow-sm space-y-10">
+            {/* Profile Information Section */}
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600">
+                  <User className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Profile Information</h3>
+                  <p className="text-sm text-slate-500">Update your personal details and contact information.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type="text"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium"
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <input 
+                      type="tel"
+                      value={formData.phoneNumber}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-medium"
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-600">
                 <Bell className="w-6 h-6" />
@@ -187,7 +273,7 @@ export default function ProfilePage({ user, onNavigate, onLogout }: ProfileProps
                 className="px-8 py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-bold hover:bg-slate-800 dark:hover:bg-blue-700 transition-all flex items-center gap-3 disabled:opacity-50 shadow-xl shadow-blue-500/10"
               >
                 {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                Save Preferences
+                Save All Changes
               </button>
             </div>
           </div>

@@ -112,15 +112,27 @@ service cloud.firestore {
                     (request.resource.data.role == 'user' || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
                     ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+
+      match /notifications/{notificationId} {
+        allow read: if isOwner(userId);
+        allow create: if isAdmin() || isSuperior() || isOwner(userId);
+        allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow delete: if isOwner(userId);
+      }
     }
 
     match /complaints/{complaintId} {
       allow read: if true; // Publicly readable
       allow create: if isValidComplaint(request.resource.data);
       allow update: if isAdmin() || isSuperior() || (
-        // Allow anyone to increment confirmations
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmations', 'isCommunityVerified']) &&
-        request.resource.data.confirmations == resource.data.confirmations + 1
+        // Allow anyone to increment confirmations or upvotes
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['confirmations', 'isCommunityVerified']) &&
+          request.resource.data.confirmations == (resource.data.confirmations || 0) + 1
+        ) || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['upvotes']) &&
+          request.resource.data.upvotes == (resource.data.upvotes || 0) + 1
+        )
       ) || (
         isAuthenticated() && isOwner(resource.data.authorUid) && isValidComplaint(request.resource.data)
       );
@@ -128,8 +140,15 @@ service cloud.firestore {
       
       match /confirmations/{userId} {
         allow read: if true;
-        allow create: if (isOwner(userId) || request.auth == null) && 
+        allow create: if isOwner(userId) && 
                       !exists(/databases/$(database)/documents/complaints/$(complaintId)/confirmations/$(userId)) &&
+                      isValidDateString(request.resource.data.createdAt);
+      }
+
+      match /upvotes/{userId} {
+        allow read: if true;
+        allow create: if isOwner(userId) && 
+                      !exists(/databases/$(database)/documents/complaints/$(complaintId)/upvotes/$(userId)) &&
                       isValidDateString(request.resource.data.createdAt);
       }
     }

@@ -82,7 +82,14 @@ function AppContent({
   deleteComplaint,
   confirmComplaint,
   isSuperior,
-  setIsSuperior
+  setIsSuperior,
+  mapInitialCenter,
+  setMapInitialCenter,
+  upvoteComplaint,
+  showNotifications,
+  setShowNotifications,
+  markNotificationAsRead,
+  clearNotifications
 }: any) {
   const { language, setLanguage, t } = useLanguage();
 
@@ -117,7 +124,19 @@ function AppContent({
     switch (currentPage) {
       case 'home': return <HomePage onNavigate={setCurrentPage} />;
       case 'report': return <ReportIssuePage onSubmit={addComplaint} onNavigate={setCurrentPage} />;
-      case 'track': return <TrackComplaintPage complaints={complaints} initialId={trackId} onClearId={() => setTrackId(null)} onConfirm={confirmComplaint} />;
+      case 'track': return (
+        <TrackComplaintPage 
+          complaints={complaints} 
+          initialId={trackId} 
+          onClearId={() => setTrackId(null)} 
+          onConfirm={confirmComplaint} 
+          onUpvote={upvoteComplaint}
+          onViewOnMap={(lat, lng) => {
+            setMapInitialCenter([lat, lng]);
+            setCurrentPage('map');
+          }}
+        />
+      );
       case 'map': return (
         <MapPage 
           complaints={complaints} 
@@ -126,6 +145,8 @@ function AppContent({
             setCurrentPage('track');
           }} 
           onConfirm={confirmComplaint}
+          onUpvote={upvoteComplaint}
+          initialCenter={mapInitialCenter}
         />
       );
       case 'how-it-works': return <HowItWorksPage />;
@@ -151,6 +172,7 @@ function AppContent({
           user={isUser} 
           onNavigate={setCurrentPage} 
           onLogout={handleLogout} 
+          onUpdateUser={setIsUser}
         />
       );
       case 'authority-login': return (
@@ -205,7 +227,10 @@ function AppContent({
                 {navLinks.map((link) => (
                   <button
                     key={link.id}
-                    onClick={() => setCurrentPage(link.id as Page)}
+                    onClick={() => {
+                      if (link.id === 'map') setMapInitialCenter(undefined);
+                      setCurrentPage(link.id as Page);
+                    }}
                     className={cn(
                       "px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap",
                       currentPage === link.id 
@@ -276,10 +301,90 @@ function AppContent({
                 <Accessibility className="w-5 h-5" />
               </button>
               <div className="relative">
-                <Bell className="w-6 h-6 text-slate-400 hover:text-slate-600 cursor-pointer" />
-                {notifications.some(n => !n.read) && (
-                  <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-                )}
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                >
+                  <Bell className="w-6 h-6" />
+                  {notifications.some(n => !n.read) && (
+                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showNotifications && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowNotifications(false)} 
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute right-0 mt-2 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-50 overflow-hidden"
+                      >
+                        <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
+                          <h3 className="font-bold text-slate-900">Notifications</h3>
+                          {notifications.some(n => !n.read) && (
+                            <button 
+                              onClick={clearNotifications}
+                              className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-700"
+                            >
+                              Mark all as read
+                            </button>
+                          )}
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications.length > 0 ? (
+                            <div className="divide-y divide-slate-50">
+                              {notifications.map((n) => (
+                                <div 
+                                  key={n.id} 
+                                  onClick={() => markNotificationAsRead(n.id)}
+                                  className={cn(
+                                    "p-4 hover:bg-slate-50 transition-colors cursor-pointer group",
+                                    !n.read && "bg-blue-50/30"
+                                  )}
+                                >
+                                  <div className="flex gap-3">
+                                    <div className={cn(
+                                      "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                                      n.type === 'success' ? "bg-emerald-100 text-emerald-600" : 
+                                      n.type === 'warning' ? "bg-amber-100 text-amber-600" : 
+                                      "bg-blue-100 text-blue-600"
+                                    )}>
+                                      {n.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : 
+                                       n.type === 'warning' ? <AlertTriangle className="w-4 h-4" /> : 
+                                       <Info className="w-4 h-4" />}
+                                    </div>
+                                    <div className="space-y-1">
+                                      <p className={cn(
+                                        "text-sm font-bold leading-tight",
+                                        !n.read ? "text-slate-900" : "text-slate-600"
+                                      )}>{n.title}</p>
+                                      <p className="text-xs text-slate-500 line-clamp-2">{n.message}</p>
+                                      <p className="text-[10px] text-slate-400 font-medium">
+                                        {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-12 text-center space-y-3">
+                              <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto text-slate-300">
+                                <Bell className="w-6 h-6" />
+                              </div>
+                              <p className="text-sm text-slate-400 font-medium">No notifications yet</p>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
@@ -320,7 +425,7 @@ function AppContent({
                 <li><button onClick={() => setCurrentPage('home')} className="hover:text-blue-400 transition-colors">{t.nav.home}</button></li>
                 <li><button onClick={() => setCurrentPage('report')} className="hover:text-blue-400 transition-colors">{t.nav.report}</button></li>
                 <li><button onClick={() => setCurrentPage('track')} className="hover:text-blue-400 transition-colors">{t.nav.track}</button></li>
-                <li><button onClick={() => setCurrentPage('map')} className="hover:text-blue-400 transition-colors">{t.nav.map}</button></li>
+                <li><button onClick={() => { setMapInitialCenter(undefined); setCurrentPage('map'); }} className="hover:text-blue-400 transition-colors">{t.nav.map}</button></li>
               </ul>
             </div>
             <div>
@@ -385,8 +490,10 @@ function AppContent({
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
   const [trackId, setTrackId] = useState<string | null>(null);
+  const [mapInitialCenter, setMapInitialCenter] = useState<[number, number] | undefined>(undefined);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
   const [isSimpleMode, setIsSimpleMode] = useState(false);
   const [isAuthority, setIsAuthority] = useState(false);
@@ -454,6 +561,25 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (auth.currentUser) {
+      const q = query(
+        collection(db, 'users', auth.currentUser.uid, 'notifications'),
+        orderBy('createdAt', 'desc')
+      );
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetchedNotifications = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        })) as Notification[];
+        setNotifications(fetchedNotifications);
+      });
+      return () => unsubscribe();
+    } else {
+      setNotifications([]);
+    }
+  }, [isAuthReady]);
+
+  useEffect(() => {
     const q = query(collection(db, 'complaints'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       console.log(`Firestore snapshot received: ${snapshot.size} complaints`);
@@ -499,24 +625,70 @@ export default function App() {
       
       await setDoc(doc(db, 'complaints', newComplaint.id), complaintData);
       
-      // Add notification
-      const notification: Notification = {
-        id: Math.random().toString(36).substr(2, 9),
-        title: 'Complaint Submitted',
-        message: `Your complaint ${newComplaint.id} has been successfully submitted.`,
-        type: 'success',
-        createdAt: new Date().toISOString(),
-        read: false
-      };
-      setNotifications([notification, ...notifications]);
+      // Add notification to Firestore if user is logged in
+      if (auth.currentUser) {
+        const notificationId = Math.random().toString(36).substr(2, 9);
+        const notificationData = {
+          title: 'Complaint Submitted',
+          message: `Your complaint ${newComplaint.id} has been successfully submitted.`,
+          type: 'success',
+          createdAt: new Date().toISOString(),
+          read: false
+        };
+        await setDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId), notificationData);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'complaints');
     }
   };
 
+  const markNotificationAsRead = async (notificationId: string) => {
+    if (!auth.currentUser) return;
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId), {
+        read: true
+      });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const clearNotifications = async () => {
+    if (!auth.currentUser) return;
+    try {
+      const batch = writeBatch(db);
+      notifications.forEach(n => {
+        if (!n.read) {
+          batch.update(doc(db, 'users', auth.currentUser!.uid, 'notifications', n.id), { read: true });
+        }
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Error clearing notifications:", error);
+    }
+  };
+
   const updateComplaintStatus = async (id: string, status: any) => {
     try {
-      await updateDoc(doc(db, 'complaints', id), { status });
+      const complaintRef = doc(db, 'complaints', id);
+      const complaintDoc = await getDoc(complaintRef);
+      
+      await updateDoc(complaintRef, { status });
+
+      if (complaintDoc.exists()) {
+        const data = complaintDoc.data();
+        if (data.authorUid && data.authorUid !== 'anonymous' && data.authorUid !== 'system') {
+          const notificationId = Math.random().toString(36).substr(2, 9);
+          const notificationData = {
+            title: 'Status Updated',
+            message: `Your complaint ${id} status has been changed to ${status}.`,
+            type: 'info',
+            createdAt: new Date().toISOString(),
+            read: false
+          };
+          await setDoc(doc(db, 'users', data.authorUid, 'notifications', notificationId), notificationData);
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `complaints/${id}`);
     }
@@ -529,6 +701,43 @@ export default function App() {
       await deleteDoc(doc(db, 'complaints', id));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `complaints/${id}`);
+    }
+  };
+
+  const upvoteComplaint = async (id: string) => {
+    if (!auth.currentUser) {
+      setCurrentPage('user-login');
+      return;
+    }
+
+    try {
+      const upvoteId = `${auth.currentUser.uid}`;
+      const upvoteRef = doc(db, 'complaints', id, 'upvotes', upvoteId);
+      
+      // Check if already upvoted
+      const existing = await getDoc(upvoteRef);
+      if (existing.exists()) {
+        console.log("You have already upvoted this issue.");
+        return;
+      }
+
+      // Atomic update using batch
+      const batch = writeBatch(db);
+      const complaintRef = doc(db, 'complaints', id);
+      
+      batch.set(upvoteRef, {
+        complaintId: id,
+        userUid: auth.currentUser.uid,
+        createdAt: new Date().toISOString()
+      });
+
+      batch.update(complaintRef, {
+        upvotes: increment(1)
+      });
+
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `complaints/${id}`);
     }
   };
 
@@ -545,7 +754,7 @@ export default function App() {
       // Check if already confirmed
       const existing = await getDoc(confirmationRef);
       if (existing.exists()) {
-        alert("You have already confirmed this issue.");
+        console.log("You have already confirmed this issue.");
         return;
       }
 
@@ -569,6 +778,22 @@ export default function App() {
         });
 
         await batch.commit();
+
+        // Send notification if verified
+        if (currentConfirmations === 5) {
+          const data = complaintDoc.data();
+          if (data.authorUid && data.authorUid !== 'anonymous' && data.authorUid !== 'system') {
+            const notificationId = Math.random().toString(36).substr(2, 9);
+            const notificationData = {
+              title: 'Community Verified!',
+              message: `Your complaint ${id} has been verified by the community.`,
+              type: 'success',
+              createdAt: new Date().toISOString(),
+              read: false
+            };
+            await setDoc(doc(db, 'users', data.authorUid, 'notifications', notificationId), notificationData);
+          }
+        }
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `complaints/${id}`);
@@ -596,6 +821,13 @@ export default function App() {
         confirmComplaint={confirmComplaint}
         isSuperior={isSuperior}
         setIsSuperior={setIsSuperior}
+        mapInitialCenter={mapInitialCenter}
+        setMapInitialCenter={setMapInitialCenter}
+        upvoteComplaint={upvoteComplaint}
+        showNotifications={showNotifications}
+        setShowNotifications={setShowNotifications}
+        markNotificationAsRead={markNotificationAsRead}
+        clearNotifications={clearNotifications}
       />
     </LanguageProvider>
   );
